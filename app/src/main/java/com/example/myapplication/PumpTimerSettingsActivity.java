@@ -1,122 +1,178 @@
 package com.example.myapplication;
+
+import android.util.Log;
+import android.widget.TimePicker;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.TimePicker;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
-import com.example.myapplication.R;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class PumpTimerSettingsActivity extends AppCompatActivity {
 
-    private TimePicker startTimePicker;
-    private TimePicker endTimePicker;
+    private TextView userIdTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pump_timer_settings);
 
-        startTimePicker = findViewById(R.id.startTimePicker);
-        endTimePicker = findViewById(R.id.endTimePicker);
+        // Inicializar el TextView para mostrar la ID del cliente
+        userIdTextView = findViewById(R.id.userIdTextView);
 
-        startTimePicker.setIs24HourView(true);
-        endTimePicker.setIs24HourView(true);
+        // Obtener y mostrar la ID del cliente
+        SharedPreferences sharedPreferences = getSharedPreferences("MyappName", MODE_PRIVATE);
+        String clientId = sharedPreferences.getString("id_cliente", "No disponible");
 
+        // Mostrar la ID del cliente
+        userIdTextView.setText(clientId);
+
+        // Configurar el botón de retroceso
         ImageButton backButton = findViewById(R.id.backToDashboardButton);
         backButton.setOnClickListener(v -> finish());
 
+        // Configurar el botón de cierre de sesión
         Button logoutButton = findViewById(R.id.logoutButton);
-        logoutButton.setOnClickListener(v -> {
+        logoutButton.setOnClickListener(v -> logoutUser());
 
-            SharedPreferences sharedPreferences = getSharedPreferences("MyApp", MODE_PRIVATE);
-            String email = sharedPreferences.getString("email", "");
-            String apiKey = sharedPreferences.getString("apiKey", "");
+        // Inicializar los TimePickers
+        TimePicker startTimePicker = findViewById(R.id.startTimePicker);
+        TimePicker endTimePicker = findViewById(R.id.endTimePicker);
 
-            if (email.isEmpty() || apiKey.isEmpty()) {
-                Toast.makeText(PumpTimerSettingsActivity.this, "No data user found", Toast.LENGTH_SHORT).show();
-                return;
-            }
+        // Configurar los TimePickers para usar el formato de 24 horas
+        startTimePicker.setIs24HourView(true);
+        endTimePicker.setIs24HourView(true);
 
-            RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-            String url = "http://192.168.1.8/backendpiscina/logout.php"; //
+        // Establecer la hora y minuto predeterminados a 00:00
+        startTimePicker.setHour(0);
+        startTimePicker.setMinute(0);
+        endTimePicker.setHour(0);
+        endTimePicker.setMinute(0);
 
-            StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
-                    new Response.Listener<String>() {
-                        @Override
-                        public void onResponse(String response) {
-                            if (response.equals("success")) {
-                                SharedPreferences.Editor editor = sharedPreferences.edit();
-                                editor.putString("logged", "false");
-                                editor.putString("name", "");
-                                editor.putString("email", "");
-                                editor.putString("apiKey", "");
-                                editor.putString("phone", "");
-                                editor.putString("lastName", "");
-                                editor.apply();
-
-                                // Redirigir al login
-                                Intent intent = new Intent(getApplicationContext(), Login.class);
-                                startActivity(intent);
-                                finish();
-                            } else {
-                                Toast.makeText(PumpTimerSettingsActivity.this, "Logout failed", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    }, new Response.ErrorListener() {
-                @Override
-                public void onErrorResponse(VolleyError error) {
-                    error.printStackTrace();
-                    Toast.makeText(PumpTimerSettingsActivity.this, "Error in logout request", Toast.LENGTH_SHORT).show();
-                }
-            }) {
-                @Override
-                protected Map<String, String> getParams() {
-                    Map<String, String> params = new HashMap<>();
-                    params.put("email", email);
-                    params.put("apiKey", apiKey);
-                    return params;
-                }
-            };
-            queue.add(stringRequest);
-        });
-
+        // Botón para guardar la configuración
         Button saveButton = findViewById(R.id.saveTimerSettingsButton);
-        saveButton.setOnClickListener(v -> saveTimerSettings());
+        saveButton.setOnClickListener(v -> saveTimerConfig(startTimePicker, endTimePicker));
     }
 
-    private void saveTimerSettings() {
+    // En el metodo saveTimerConfig, cambia la forma en que se pasan los parámetros al servidor.
+    private void saveTimerConfig(TimePicker startTimePicker, TimePicker endTimePicker) {
+        // Obtener las horas y minutos seleccionados
         int startHour = startTimePicker.getHour();
         int startMinute = startTimePicker.getMinute();
         int endHour = endTimePicker.getHour();
         int endMinute = endTimePicker.getMinute();
 
+        // Convertir a formato de 24 horas
+        String horaInicio = String.format("%02d:%02d:00", startHour, startMinute);
+        String horaFin = String.format("%02d:%02d:00", endHour, endMinute);
 
+        // Obtener el ID de cliente desde SharedPreferences
+        SharedPreferences sharedPreferences = getSharedPreferences("MyappName", MODE_PRIVATE);
+        String clientId = sharedPreferences.getString("id_cliente", "No disponible");
 
-        String startTime = String.format("%02d:%02d", startHour, startMinute);
-        String endTime = String.format("%02d:%02d", endHour, endMinute);
+        if ("No disponible".equals(clientId)) {
+            Toast.makeText(PumpTimerSettingsActivity.this, "Cliente no encontrado", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
+        Log.d("ClientId", "ClientId: " + clientId);  // Depuración para el clientId
 
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("START_TIME", startTime);
-        resultIntent.putExtra("END_TIME", endTime);
-        setResult(Activity.RESULT_OK, resultIntent);
+        // Realizar la solicitud al servidor para guardar la configuración
+        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+        String url = "http://192.168.100.91/backendpiscina/savePumpTimerConfig.php";
 
-        Toast.makeText(this, "Configuración guardada", Toast.LENGTH_SHORT).show();
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    if ("success_insert".equals(response)) {
+                        Toast.makeText(PumpTimerSettingsActivity.this, "Configuración guardada", Toast.LENGTH_SHORT).show();
+                    } else if ("success_update".equals(response)) {
+                        Toast.makeText(PumpTimerSettingsActivity.this, "Configuración actualizada", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(PumpTimerSettingsActivity.this, "Error: " + response, Toast.LENGTH_SHORT).show();
+                    }
+                },
+                error -> {
+                    Toast.makeText(PumpTimerSettingsActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
+                    error.printStackTrace();
+                }) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("id_cliente", clientId);  // Pasamos el id_cliente directamente desde SharedPreferences
+                params.put("hora_inicio", horaInicio);
+                params.put("hora_fin", horaFin);
+                return params;
+            }
+        };
+
+        queue.add(stringRequest);
+    }
+
+    private void logoutUser() {
+        // Obtener los datos del usuario desde SharedPreferences
+        SharedPreferences sharedPreferences = getSharedPreferences("MyappName", MODE_PRIVATE);
+        String email = sharedPreferences.getString("email", "");
+        String apiKey = sharedPreferences.getString("apiKey", "");
+
+        if (email.isEmpty() || apiKey.isEmpty()) {
+            Toast.makeText(PumpTimerSettingsActivity.this, "No se encontraron datos del usuario", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Realizar la petición de cierre de sesión al servidor
+        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+        String url = "http://192.168.100.91/backendpiscina/logout.php";
+
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    if ("success".equals(response)) {
+                        clearUserData(sharedPreferences);
+                        navigateToLogin();
+                    } else {
+                        Toast.makeText(PumpTimerSettingsActivity.this, response, Toast.LENGTH_SHORT).show();
+                        clearUserData(sharedPreferences);
+                        navigateToLogin();
+                    }
+                },
+                error -> {
+                    Toast.makeText(PumpTimerSettingsActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
+                    error.printStackTrace();
+                }) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("email", email);
+                params.put("apiKey", apiKey);
+                return params;
+            }
+        };
+
+        queue.add(stringRequest);
+    }
+
+    private void clearUserData(SharedPreferences sharedPreferences) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.clear();  // Limpiar los datos del usuario
+        editor.apply();
+    }
+
+    private void navigateToLogin() {
+        // Navegar a la pantalla de login
+        Intent intent = new Intent(getApplicationContext(), Login.class);
+        startActivity(intent);
         finish();
     }
 }

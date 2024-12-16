@@ -64,13 +64,92 @@ public class ProfileEditor extends AppCompatActivity {
 
         sharedPreferences = getSharedPreferences("MyappName", MODE_PRIVATE);
 
-        TextViewName.setText(sharedPreferences.getString("name", ""));
+        TextViewName.setText("👋 Esta ventana es para editar tus datos, "+sharedPreferences.getString("name", "")+" 🔐");
         editName.setText(sharedPreferences.getString("name", ""));
         inputLastName.setText(sharedPreferences.getString("lastName", ""));
         inputEmail.setText(sharedPreferences.getString("email", ""));
         inputPhone.setText(sharedPreferences.getString("phone", ""));
 
-        //aqui empieza el boton para editar la contraseña del usuario
+        buttonEditPassword.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                password = inputPassword.getText().toString().trim();
+
+                //esto es para obtener los datos del usuario que el coloco en el login (copiado y pegado de chatgpt)
+                SharedPreferences sharedPreferences = getSharedPreferences("MyappName", MODE_PRIVATE);
+                String apiKey = sharedPreferences.getString("apiKey", "");
+
+                //esto es para saber si estan vacias las variables
+                if (apiKey.isEmpty()) {
+                    Toast.makeText(ProfileEditor.this, "No data user found", Toast.LENGTH_SHORT).show();
+                    return;
+                } else if (password.isEmpty()) {
+                    Toast.makeText(ProfileEditor.this, "data field empty", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+                String url = "http://192.168.100.91/backendpiscina/editar/update-m.php";
+
+                StringRequest stringRequest = new StringRequest(Request.Method.POST, url, new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        if (response.equals("success")) {
+                            Toast.makeText(ProfileEditor.this, response, Toast.LENGTH_SHORT).show();
+                            SharedPreferences.Editor editor = sharedPreferences.edit();
+                            editor.putString("logged", "false");
+                            editor.putString("name", "");
+                            editor.putString("lastName", "");
+                            editor.putString("email", "");
+                            editor.putString("phone", "");
+                            editor.putString("password", "");
+                            editor.putString("apiKey", "");
+                            editor.putString("id_cliente", "");
+                            editor.apply();
+
+                            Intent intent = new Intent(getApplicationContext(), Login.class);
+                            startActivity(intent);
+                            finish();
+                        } else {
+                            Toast.makeText(ProfileEditor.this, response, Toast.LENGTH_SHORT).show();
+                            SharedPreferences.Editor editor = sharedPreferences.edit();
+                            editor.putString("logged", "false");
+                            editor.putString("name", "");
+                            editor.putString("lastName", "");
+                            editor.putString("email", "");
+                            editor.putString("phone", "");
+                            editor.putString("password", "");
+                            editor.putString("apiKey", "");
+                            editor.putString("id_cliente", "");
+                            editor.apply();
+
+                            Intent intent = new Intent(getApplicationContext(), Login.class);
+                            startActivity(intent);
+                            finish();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        error.printStackTrace();
+                    }
+                }) {
+                    @Override
+                    protected Map<String, String> getParams() {
+                        Map<String, String> params = new HashMap<>();
+
+                        params.put("password", password);
+                        params.put("apiKey", sharedPreferences.getString("apiKey", ""));
+                        String caso4 = "4";
+                        params.put("caso", caso4);
+                        return params;
+                    }
+                };
+                queue.add(stringRequest);
+            }
+        });
+
+        //aqui empieza el boton para editar el telefono del usuario
         buttonEditPhone.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
